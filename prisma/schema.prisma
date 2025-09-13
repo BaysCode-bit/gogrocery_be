@@ -1,0 +1,140 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id             Int           @id @default(autoincrement())
+  email          String        @unique
+  name           String?
+  password       String?
+  role           Role          @default(USER)
+  isVerified     Boolean       @default(false)
+  profilePicture String?
+  referralCode   String?       @unique @default(cuid())
+  referrer       User?         @relation("Referrals", fields: [referrerId], references: [id])
+  referrerId     Int?
+  referredUsers  User[]        @relation("Referrals")
+  addresses      UserAddress[]
+  orders         Order[]
+  vouchers       Voucher[]
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+}
+
+model UserAddress {
+  id         Int     @id @default(autoincrement())
+  user       User    @relation(fields: [userId], references: [id])
+  userId     Int
+  address    String
+  city       String
+  province   String
+  postalCode String
+  latitude   Float
+  longitude  Float
+  isPrimary  Boolean @default(false)
+}
+
+model Store {
+  id          Int         @id @default(autoincrement())
+  name        String
+  address     String
+  city        String
+  province    String
+  latitude    Float
+  longitude   Float
+  isMain      Boolean     @default(false)
+  inventories Inventory[]
+  orders      Order[]
+}
+
+model Product {
+  id          Int         @id @default(autoincrement())
+  name        String      @unique
+  description String
+  price       Int
+  images      String[]
+  category    Category    @relation(fields: [categoryId], references: [id])
+  categoryId  Int
+  inventories Inventory[]
+  orderItems  OrderItem[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+model Category {
+  id       Int       @id @default(autoincrement())
+  name     String    @unique
+  products Product[]
+}
+
+model Inventory {
+  id        Int     @id @default(autoincrement())
+  product   Product @relation(fields: [productId], references: [id])
+  productId Int
+  store     Store   @relation(fields: [storeId], references: [id])
+  storeId   Int
+  stock     Int
+
+  @@unique([productId, storeId])
+}
+
+model Order {
+  id              Int         @id @default(autoincrement())
+  user            User        @relation(fields: [userId], references: [id])
+  userId          Int
+  store           Store       @relation(fields: [storeId], references: [id])
+  storeId         Int
+  totalPrice      Int
+  shippingCost    Int
+  totalAmount     Int
+  status          OrderStatus @default(WAITING_FOR_PAYMENT)
+  shippingAddress String
+  paymentProof    String?
+  orderItems      OrderItem[]
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+}
+
+model OrderItem {
+  id        Int     @id @default(autoincrement())
+  order     Order   @relation(fields: [orderId], references: [id])
+  orderId   Int
+  product   Product @relation(fields: [productId], references: [id])
+  productId Int
+  quantity  Int
+  price     Int
+}
+
+model Voucher {
+  id                 Int      @id @default(autoincrement())
+  code               String   @unique @default(cuid())
+  description        String
+  discountPercentage Int
+  maxDiscount        Int
+  isUsed             Boolean  @default(false)
+  user               User     @relation(fields: [userId], references: [id])
+  userId             Int
+  expiresAt          DateTime
+}
+
+enum Role {
+  USER
+  STORE_ADMIN
+  SUPER_ADMIN
+}
+
+enum OrderStatus {
+  WAITING_FOR_PAYMENT
+  WAITING_FOR_CONFIRMATION
+  PROCESSED
+  SHIPPED
+  CONFIRMED
+  CANCELLED
+}
